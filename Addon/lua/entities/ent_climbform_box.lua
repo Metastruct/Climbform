@@ -1,5 +1,5 @@
 --Made by MrRangerLP
---Shared
+
 AddCSLuaFile()
 ENT.Base = "base_gmodentity"
 ENT.Type = "anim"
@@ -21,7 +21,7 @@ if SERVER then
 		self:SetSolid(SOLID_VPHYSICS)
 
 		local phys = self:GetPhysicsObject()
-		if phys:IsValid() then
+		if IsValid(phys) then
 			phys:Wake()
 			phys:EnableMotion(false)
 		end
@@ -70,6 +70,5 @@ if CLIENT then
 	end
 
 	function ENT:OnRemove()
-		self:EmitSound("physics/wood/wood_crate_break" .. math.random(1, 5) .. ".wav", 75, 100, 1, CHAN_AUTO)
 	end
 end

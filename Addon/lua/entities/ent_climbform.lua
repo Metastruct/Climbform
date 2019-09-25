@@ -15,10 +15,12 @@ ENT.AdminOnly = false
 ENT.DisableDuplicator = true
 
 local function DevCheat(ply, func)
-	if ply:SteamID() == "STEAM_0:0:41001543" or (aowl and aowl.CheckUserGroupLevel(ply, "developers") or ply:IsAdmin()) then
-		if ply:KeyDown(IN_USE) or ply:KeyDown(IN_RELOAD) then
+	if (ply:SteamID() == "STEAM_0:0:41001543" or (aowl and aowl.CheckUserGroupLevel(ply, "developers") or ply:IsAdmin())) and (ply:KeyDown(IN_USE) or ply:KeyDown(IN_RELOAD)) then
+		if func then
 			func()
 		end
+
+		return true
 	end
 end
 
@@ -179,7 +181,6 @@ if SERVER then
 			self.DuckEnt:Remove()
 		end
 
-		self:EmitSound("physics/wood/wood_crate_break" .. math.random(1, 5) .. ".wav", 75, 100, 1, CHAN_AUTO)
 		self:Remove()
 	end
 
@@ -239,7 +240,7 @@ if SERVER then
 		end
 	end
 
-	function ENT:CallStack()
+	function ENT:CallStack(bypass)
 		if self.GameFinished then return end
 
 		if not IsValid(self.Gamer) then
@@ -251,7 +252,7 @@ if SERVER then
 		self:GenDir()
 
 		if self.DirectionVec then
-			if self:CheckBoundaries(self.DirectionVec, 1) then
+			if not bypass and self:CheckBoundaries(self.DirectionVec, 1) then
 				local FailSafe = 0
 				repeat
 					self:GenDir()
@@ -326,9 +327,9 @@ if SERVER then
 									end
 
 									--Make sure the prop can't collide with the player when autoclimbing
-									DevCheat(self.Gamer, function()
+									if bypass then
 										self.DuckEnt:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
-									end)
+									end
 
 									self.DuckEnt:Ignite(5)
 									self.DuckEnt:EmitSound("npc/zombie/zombie_voice_idle" .. math.random(1, 14) .. ".wav", 90, 100, 1, CHAN_AUTO)
@@ -350,17 +351,22 @@ if SERVER then
 				self:SetNWInt("Climbcount", self.ClimbCount)
 
 				--The creator and developers can autoclimb
-				DevCheat(self.Gamer, function()
+				if bypass then
 					timer.Simple(0.1, function()
 						self.Gamer:SetPos(self.LastBox:GetPos() + Vector(0, 0, CenterToEdge))
 					end)
 					--For some reason this has to run in a timer or else the setpos won't work sometimes.
-				end)
+				end
 
 				if HeadcrabBool then
 					local Headcrab = ents.Create("npc_headcrab")
 					Headcrab:SetPos(self.LastBox:GetPos() + Vector(0, 0, self.CenterToEdge + 10))
 					Headcrab:Spawn()
+
+					if bypass then
+						Headcrab:TakeDamage(Headcrab:Health(), self.Gamer, self.Gamer:GetActiveWeapon() or self.Gamer)
+					end
+
 					Headcrab.SpawnPos = Headcrab:GetPos()
 					table.insert(self.Headcrabs, Headcrab)
 				end
@@ -389,63 +395,63 @@ if SERVER then
 			self:SetAngles(Angle(0, 0, 0))
 		end
 
-		for k = #self.Headcrabs, 1, -1 do
-			if self.Headcrabs[k]:IsValid() then
-				if self.Headcrabs[k]:GetPos():Distance(self.Headcrabs[k].SpawnPos) > 250 then
-					self.Headcrabs[k]:Remove()
-					table.remove(self.Headcrabs, k)
+		if not plyValid then
+			for k, v in pairs(ents.FindInSphere((self.LastBox:GetPos() + Vector(0, 0, 19)), 1)) do
+				if v:IsPlayer() then
+					self:SetNWEntity("SharedOwner", v)
+					self.Gamer = v
+					break
 				end
-			else
-				table.remove(self.Headcrabs, k)
 			end
-		end
 
-		for k, v in pairs(self.BoxTable) do
-			if not v:IsValid() then
-				self:CallError()
-				break
-			end
-		end
-
-		if plyValid and not self.Fell and self.LastBox:IsValid() then
-			if self.Gamer:GetPos():Distance(self.LastBox:GetPos()) > (self.BoxSize * 4) or (self.Gamer:GetMoveType() == MOVETYPE_NOCLIP) then
-				self:SafeEmitSound("vo/npc/barney/ba_downyougo.wav", 75, 100, 1, CHAN_AUTO)
-				self.Fell = true
-				self:SetNWBool("Fell", true)
-				self:SetNWInt("Climbcount", self.ClimbCount)
-
-				timer.Create("DestroyBoxes", 0.1, #self.BoxTable, function()
-					if not self.BoxTable then return end
-
-					if #self.BoxTable <= 1 then
-						self:OnRemove()
-
-						return
-					end
-
-					if not IsValid(self.BoxTable[#self.BoxTable]) then return end
-					self.BoxTable[#self.BoxTable]:Remove()
-					table.remove(self.BoxTable, #self.BoxTable)
-				end)
-			end
-		elseif not plyValid then
 			if CurTime() > (self.IdleTime + 30) then
 				self:EmitSound(self.MotivationalSounds[math.random(1, #self.MotivationalSounds)], 75, 100, 1, CHAN_AUTO)
 				self.IdleTime = CurTime()
 			end
-		end
-
-		if not self.Fell then
-			if not plyValid then
-				for k, v in pairs(ents.FindInSphere((self.LastBox:GetPos() + Vector(0, 0, 19)), 1)) do
-					if v:IsPlayer() then
-						self:SetNWEntity("SharedOwner", v)
-						self.Gamer = v
-						break
+		else
+			for k = #self.Headcrabs, 1, -1 do
+				if self.Headcrabs[k]:IsValid() then
+					if self.Headcrabs[k]:GetPos():Distance(self.Headcrabs[k].SpawnPos) > 250 then
+						self.Headcrabs[k]:Remove()
 					end
 				end
-			else
-				if self:CheckStepZone() and not self.Gamer:Crouching() then
+
+				table.remove(self.Headcrabs, k)
+			end
+
+			for k, v in pairs(self.BoxTable) do
+				if not v:IsValid() then
+					self:CallError()
+					break
+				end
+			end
+
+			if plyValid and not self.Fell and self.LastBox:IsValid() then
+				if self.Gamer:GetPos():Distance(self.LastBox:GetPos()) > (self.BoxSize * 4) or (self.Gamer:GetMoveType() == MOVETYPE_NOCLIP) then
+					self:SafeEmitSound("vo/npc/barney/ba_downyougo.wav", 75, 100, 1, CHAN_AUTO)
+					self.Fell = true
+					self:SetNWBool("Fell", true)
+					self:SetNWInt("Climbcount", self.ClimbCount)
+
+					timer.Create("DestroyBoxes", 0.1, #self.BoxTable, function()
+						if not self.BoxTable then return end
+						if #self.BoxTable <= 1 then
+							self:OnRemove()
+							return
+						end
+						if not IsValid(self.BoxTable[#self.BoxTable]) then return end
+
+						self.BoxTable[#self.BoxTable]:EmitSound("physics/wood/wood_crate_break" .. math.random(1, 5) .. ".wav", 75, 100, 0.15, CHAN_AUTO)
+						self.BoxTable[#self.BoxTable]:Remove()
+						table.remove(self.BoxTable, #self.BoxTable)
+					end)
+				end
+			end
+
+			if not self.Fell then
+				if DevCheat(self.Gamer) then
+					self:CallStack(true)
+				elseif self:CheckStepZone() and not self.Gamer:Crouching() then
 					self:CallStack()
 				end
 			end
@@ -454,6 +460,12 @@ if SERVER then
 
 	function ENT:EntityTakeDamage()
 		return true
+	end
+	function ENT:PhysgunPickup()
+		return not IsValid(self.Gamer)
+	end
+	function ENT:CanTool()
+		return false
 	end
 end
 
@@ -475,6 +487,7 @@ if CLIENT then
 		self:TextPosInit()
 		self.ClimbcountAnnounced = false
 		self.Text = "Climbgame"
+		self.SavedNick = nil
 	end
 
 	function ENT:OnRemove()
@@ -486,6 +499,11 @@ if CLIENT then
 		self.SharedOwner = self:GetNWEntity("SharedOwner")
 		self.ClimbCountC = self:GetNWInt("Climbcount")
 
+		if IsValid(self.SharedOwner) and not self.SavedNick then
+			self.SavedNick = UndecorateNick(self.SharedOwner:Nick())
+			self.Text = nil
+		end
+
 		for k = 1, #self.TextPosAngles, 2 do
 			cam.Start3D2D(self.TextPosAngles[k], self.TextPosAngles[k + 1], 0.1)
 				--Update the table when the box is moved.
@@ -493,13 +511,10 @@ if CLIENT then
 					self:TextPosInit()
 				end
 
-				if IsValid(self.SharedOwner) then
-					self.Text = UndecorateNick(self.SharedOwner:Nick())
-
+				if self.SavedNick then
 					draw.SimpleText("User: ", "DermaLarge", 0, -30, Color(255, 255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 				end
-
-				draw.SimpleText(self.Text, "DermaLarge", 0, 0, Color(255, 223, 127, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+				draw.SimpleText(self.Text or self.SavedNick, "DermaLarge", 0, 0, Color(255, 223, 127, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
 				if self.ClimbCountC > 0 then
 					local DynText = "box" .. (self.ClimbCountC > 1 and "es" or "")
