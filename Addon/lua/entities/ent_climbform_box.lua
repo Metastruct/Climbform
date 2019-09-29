@@ -1,17 +1,18 @@
 --Made by MrRangerLP
 
 AddCSLuaFile()
-ENT.Base = "base_gmodentity"
-ENT.Type = "anim"
-ENT.PrintName = "Climbgame Box"
-ENT.Category = "Fun + Games"
-ENT.Author = "MrRangerLP"
-ENT.Contact = ""
-ENT.Purpose = ""
-ENT.Instructions = ""
-ENT.Spawnable = false
-ENT.AdminOnly = false
-ENT.DisableDuplicator = true
+
+ENT.Base				= "base_gmodentity"
+ENT.Type				= "anim"
+ENT.PrintName			= "Climbgame Box"
+ENT.Category			= "Fun + Games"
+ENT.Author				= "MrRangerLP"
+ENT.Contact				= ""
+ENT.Purpose				= ""
+ENT.Instructions		= ""
+ENT.Spawnable			= false
+ENT.AdminOnly			= false
+ENT.DisableDuplicator	= true
 
 if SERVER then
 	function ENT:Initialize()
@@ -28,47 +29,24 @@ if SERVER then
 
 		local plyValid = IsValid(self.Owner)
 		if self.CPPIExists then
-			if plyValid then
+			if IsValid(self.Owner) then
 				self:CPPISetOwner(self.Owner)
 			end
 		else
-			if plyValid then
-				self:SetNWEntity("my_owner", self.Owner) --TinyCPPI Compatibility
+			if IsValid(self.Owner) then
+				self:SetNWEntity("my_owner",self.Owner) --TinyCPPI Compatibility
 			end
 		end
 	end
-
-	function ENT:EntityTakeDamage()
-		return true
-	end
-
-	function ENT:PhysgunPickup()
-		return false
-	end
-
-	function ENT:CanPlayerUnfreeze()
-		return false
-	end
-
-	function ENT:CanTool()
-		return false
-	end
+	
+	function ENT:EntityTakeDamage() return true end
+	function ENT:PhysgunPickup() return false end
+	function ENT:CanTool() return false end
 end
 
 if CLIENT then
-	function ENT:Initialize()
-	end
-
-	function ENT:OnRemove()
-	end
-
-	function ENT:Draw()
-		self.BaseClass.Draw(self)
-	end
-
-	function ENT:Think()
-	end
-
-	function ENT:OnRemove()
-	end
+	function ENT:Initialize() end
+	function ENT:Draw() self.BaseClass.Draw(self) end
+	function ENT:Think() end
+	function ENT:OnRemove() end
 end
